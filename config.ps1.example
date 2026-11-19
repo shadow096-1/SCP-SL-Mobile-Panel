@@ -1,0 +1,8 @@
+# If the panel runs under another Windows account, copy this file to config.ps1 and edit paths.
+# $env:SCP_PANEL_GAME_ROOT = 'C:\Users\GameUser\AppData\Roaming\SCP Secret Laboratory\config'
+# $env:SCP_PANEL_EXILED_ROOT = 'C:\Users\GameUser\AppData\Roaming\EXILED\Configs'
+# $env:SCP_PANEL_LABAPI_CONFIG_ROOT = 'C:\Users\GameUser\AppData\Roaming\SCP Secret Laboratory\LabAPI\configs'
+# $env:SCP_PANEL_EXILED_PLUGINS_ROOT = 'C:\Users\GameUser\AppData\Roaming\EXILED\Plugins'
+# $env:SCP_PANEL_LABAPI_ROOT = 'C:\Users\GameUser\AppData\Roaming\SCP Secret Laboratory\LabAPI'
+# $env:SCP_PANEL_SERVER_LOGS_ROOT = 'C:\Users\GameUser\AppData\Roaming\SCP Secret Laboratory\ServerLogs'
+# Optional port: $env:SCP_PANEL_PORT = '3767'

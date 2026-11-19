@@ -1,0 +1,8 @@
+data/
+node_modules/
+config.ps1
+*.pfx
+*.key
+*.pem
+.env
+test/scp-panel-test-*/

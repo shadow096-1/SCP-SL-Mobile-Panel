@@ -1,0 +1,11 @@
+{
+  "name": "scp-sl-mobile-panel",
+  "version": "2.7.7",
+  "private": true,
+  "description": "SCP:SL Windows server configuration web panel",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=20" }
+}

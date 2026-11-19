@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1421">
+  <title>SCP:SL 手机管理面板</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/config-editor.js" defer></script>
+  <script src="/app.js" defer></script>
+  <script src="/manage.js" defer></script>
+</head>
+<body>
+  <section id="login" class="login-screen" hidden>
+    <div class="login-card">
+      <div class="brand-icon">S</div>
+      <p class="eyebrow">SERVER CONTROL</p>
+      <h1>SCP:SL 手机管理面板</h1>
+      <p class="muted">配置、插件与游戏服务管理</p>
+      <form id="login-form">
+        <label for="username">账号名</label>
+        <input id="username" type="text" value="owner" autocomplete="username" required>
+        <label for="password">管理员密码</label>
+        <input id="password" type="password" autocomplete="current-password" required autofocus>
+        <button type="submit" class="primary wide">进入面板 <span aria-hidden="true">→</span></button>
+      </form>
+      <p id="login-error" class="error" role="alert"></p>
+    </div>
+  </section>
+
+  <div id="app" class="app-shell" hidden>
+    <header class="topbar">
+      <div class="brand"><span class="brand-icon small">S</span><div><strong>SCP:SL</strong><small>手机管理面板</small></div></div>
+      <div class="top-actions"><span class="status"><i></i> 已连接</span><button id="logout" class="subtle" type="button">退出</button></div>
+    </header>
+    <nav class="page-tabs" aria-label="面板功能">
+      <button class="page-tab active" type="button" data-view="dashboard">总控制</button>
+      <button class="page-tab" type="button" data-view="players">玩家</button>
+      <button class="page-tab" type="button" data-view="game_admin">游戏管理记录</button>
+      <button class="page-tab" type="button" data-view="plugins">插件</button>
+      <button class="page-tab" type="button" data-view="config">配置文件</button>
+      <button class="page-tab" type="button" data-view="accounts">账号管理</button>
+      <button class="page-tab" type="button" data-view="audit">面板操作记录</button>
+    </nav>
+    <main id="dashboard-view" class="control-page">
+      <div class="page-heading"><div><p class="eyebrow">SERVER OVERVIEW</p><h1>服务器状态</h1></div><button id="game-refresh" class="secondary" type="button">刷新</button></div>
+      <div class="metric-grid">
+        <article class="metric-card"><span>游戏服务</span><strong id="game-state">读取中…</strong><small id="game-detail">正在检查 LocalAdmin</small></article>
+        <article class="metric-card"><span>Windows CPU</span><strong id="machine-cpu">—</strong><small>整台服务器的使用率</small></article>
+        <article class="metric-card"><span>Windows 内存</span><strong id="machine-memory">—</strong><small>整台服务器的已用内存</small></article>
+      </div>
+      <section class="control-card" id="game-control-card"><div class="card-heading"><h2>游戏控制</h2><p>首次使用需填写这台 Windows 服务器上的 LocalAdmin.exe 完整路径和游戏端口。</p></div>
+        <form id="game-config-form" class="form-grid"><label>LocalAdmin.exe 路径<input id="game-executable" type="text" placeholder="例如 D:\\SCPSL\\LocalAdmin.exe" autocomplete="off" required></label><label>游戏端口<input id="game-port" type="number" min="1" max="65535" value="7777" required></label><button class="secondary" type="submit">保存设置</button></form>
+        <details class="advanced-setting"><summary>高级设置：玩家查询和文字编码</summary><label>LocalAdmin 控制台命令<input id="players-command" type="text" value="players" maxlength="80" form="game-config-form"></label><label>控制台文字编码<select id="console-encoding" form="game-config-form"><option value="auto">自动识别（推荐）</option><option value="gb18030">简体中文 Windows（GB18030）</option><option value="utf8">UTF-8</option></select></label><p class="muted small-text">默认使用 players 和自动识别。若玩家名仍显示乱码，选择“简体中文 Windows”，保存后重新启动游戏服务。</p></details>
+        <p id="external-hint" class="inline-note" hidden></p>
+        <div class="control-actions"><button id="game-start" class="primary" type="button">启动游戏服务器</button><button id="game-restart" class="secondary" type="button">重启游戏服务器</button><button id="game-stop" class="secondary" type="button">关闭游戏服务器</button></div>
+        <p id="pending-edits-status" class="inline-note" hidden></p>
+        <p class="muted small-text">第一次接管时，请先在原 LocalAdmin 窗口正常关闭游戏，然后点击“启动游戏服务器”。这里的关闭只停止 SCP:SL 游戏，不会关闭 Windows 电脑。</p>
+      </section>
+      <section class="control-card" id="game-admin-card" hidden><div class="card-heading"><h2>游戏内管理操作</h2><p>按时间显示管理员做过的操作、目标玩家及日志原文。仅主账号可见。</p></div><div class="audit-card-actions"><button id="game-admin-refresh" class="secondary" type="button">刷新记录</button></div><label class="player-search">查找管理员、Steam64 ID、玩家或操作<input id="game-admin-search" type="search" placeholder="例如：封禁玩家、发放物品、玩家 ID"></label><p id="game-admin-note" class="muted small-text">正在加载…</p><div id="game-admin-list" class="audit-list"></div></section>
+      <div class="split-grid"><section class="control-card" id="online-card"><div class="card-heading"><h2>在线玩家 <span id="online-count">0</span></h2><p id="players-monitor-status">游戏启动后自动监听玩家连接和离开。</p></div><button id="game-players" class="secondary" type="button">立即查询玩家</button><div id="online-player-list" class="player-list"><p class="muted">暂无在线玩家记录。</p></div><details class="advanced-setting" id="players-raw"><summary>查看 players 原始输出</summary><pre id="players-output" class="console-box">尚未查询。</pre></details></section><section class="control-card" id="console-card"><div class="card-heading"><h2>LocalAdmin 控制台</h2><p>显示最近的游戏服务输出。仅能向面板启动的游戏发送命令。</p></div><pre id="game-logs" class="console-box">暂无记录。</pre><form id="console-command-form" class="console-command-form"><input id="console-command" type="text" maxlength="200" autocomplete="off" placeholder="输入 LocalAdmin 命令" aria-label="控制台命令" required><button id="console-send" class="primary" type="submit">发送</button></form></section></div>
+      <section class="control-card" id="player-records-card"><div class="card-heading"><h2>已记录玩家 <span id="known-count">0</span></h2><p>按 Steam64 ID 保存最近看到的玩家名称和连接 IP；同一 ID 的名称或 IP 变化时自动更新。点击玩家即可查看或编辑资料。</p></div><label class="player-search">查找名称、Steam64 ID、IP 或标签<input id="player-search" type="search" placeholder="输入名字、7656… 或 IP"></label><div id="known-player-list" class="player-list"><p class="muted">尚无记录。</p></div></section>
+      <section class="control-card" id="player-editor-card" hidden><div class="card-heading"><h2>玩家资料 <span id="player-editor-name"></span></h2><p id="player-editor-id"></p></div>
+        <div class="player-admin-box"><h3>游戏等级 · PlayerLevels</h3><p class="muted small-text">游戏运行时可先保存等级；面板将在本回合结束时停止游戏、写入插件存档并自动启动。新等级生效时当前经验归零，累计积分保留。</p><label>等级<input id="player-level" type="number" min="1" max="99999" step="1"></label><button id="player-level-save" class="primary" type="button">保存等级修改</button><p id="player-level-status" class="muted small-text">选择玩家后读取插件存档。</p></div>
+        <div class="player-admin-box"><h3>游戏标签 · PlayerBadge</h3><p class="muted small-text">游戏运行时可先保存标签和颜色；面板将在本回合结束时完整重启游戏。玩家重新加入后显示新标签。</p><label>标签文字<input id="player-tag" type="text" maxlength="48" placeholder="留空可移除标签"></label><label>标签颜色<select id="player-badge-color"></select></label><button id="player-badge-save" class="primary" type="button">保存标签修改</button><p id="player-badge-status" class="muted small-text">选择玩家后读取插件配置。</p></div>
+        <div class="player-admin-box"><h3>累计游戏时长 · 面板记录</h3><form id="player-profile-form" class="player-profile-form"><label>累计时长（分钟）<input id="player-minutes" type="number" min="0" max="35791394" step="1" required></label><button id="player-profile-save" class="secondary" type="submit">保存累计时长</button></form><p class="muted small-text">从面板检测到玩家在线时起自动累计，可手动修正。当前两个插件没有可编辑的累计时长存档，游戏内显示的会话时间不随此值变化。</p></div>
+        <div id="player-admin-box" class="player-admin-box" hidden><h3>游戏内管理权限</h3><p class="muted small-text">从当前 SCP:SL 管理员配置中选择现有权限组。保存会自动备份配置；重新登录游戏或重启游戏服务后检查是否生效。</p><label>管理员组<select id="player-admin-group"></select></label><button id="player-admin-save" class="secondary" type="button">保存管理员组</button><p id="player-admin-status" class="muted small-text"></p></div>
+      </section>
+      <section class="control-card" id="panel-update-card"><div class="card-heading"><h2>更新手机面板 <span id="panel-version"></span></h2><p>在手机上选择新版更新包 ZIP，安装后面板会自动重启。更新前请先关闭由面板启动的游戏服务器。</p></div><form id="panel-update-form" class="upload-form"><label>更新包<input id="panel-update-file" type="file" accept=".zip" required></label><button id="panel-update" class="primary" type="submit">安装面板更新</button></form><p class="muted small-text">只使用你信任的面板更新包。玩家记录、密码、证书和配置备份保存在 data 目录，更新不会覆盖。</p></section>
+    </main>
+    <main id="players-view" class="control-page" hidden><div class="page-heading"><div><p class="eyebrow">PLAYER RECORDS</p><h1>玩家信息与查找</h1></div><button id="players-refresh" class="secondary" type="button">刷新</button></div><div id="players-content"></div></main>
+    <main id="game_admin-view" class="control-page" hidden><div class="page-heading"><div><p class="eyebrow">IN-GAME ADMIN</p><h1>游戏内管理操作记录</h1></div></div><div id="game-admin-content"></div></main>
+    <main id="plugins-view" class="control-page" hidden>
+      <div class="page-heading"><div><p class="eyebrow">PLUGIN MANAGER</p><h1>插件管理</h1></div><button id="plugins-refresh" class="secondary" type="button">刷新</button></div>
+      <section class="control-card" id="plugin-upload-card"><div class="card-heading"><h2>上传插件</h2><p>选择手机或电脑上的 .dll 文件，上传到游戏服务器对应目录。</p></div>
+        <form id="plugin-upload-form" class="upload-form"><label>插件类型<select id="plugin-kind"><option value="exiled">EXILED 插件</option><option value="labapi-port">LabAPI 插件 · 当前端口</option><option value="labapi-global">LabAPI 插件 · 全局</option><option value="labapi-dependency-port">LabAPI 依赖 · 当前端口</option><option value="labapi-dependency-global">LabAPI 依赖 · 全局</option></select></label><label>DLL 文件<input id="plugin-file" type="file" accept=".dll" required></label><button class="primary" type="submit">上传到服务器</button></form>
+        <p class="muted small-text">只安装你信任的插件。新增、替换和启停后，请重启游戏服务使设置生效。部分插件还需要额外配置或依赖。</p>
+      </section>
+      <section class="control-card"><div class="card-heading"><h2>已安装插件</h2><p>显示 DLL 自带的文件说明；管理员可以填写更准确的中文作用。启停或删除后，重启游戏服务才会生效。删除前会备份 DLL。</p></div><div id="plugin-list" class="plugin-list"><p class="muted">正在加载…</p></div></section>
+    </main>
+    <div id="config-view" class="workspace" hidden>
+      <aside class="sidebar">
+        <div class="sidebar-head"><div><p class="eyebrow">WORKSPACE</p><h2>配置文件</h2></div><button id="refresh" class="icon-button" title="刷新列表" aria-label="刷新列表">↻</button></div>
+        <label class="search"><span>⌕</span><input id="search" type="search" placeholder="搜索文件或端口" aria-label="搜索配置文件"></label>
+        <nav id="files" aria-label="配置文件"></nav>
+        <p class="sidebar-note">文件来自服务器当前账户的 AppData。保存前自动生成备份。</p>
+      </aside>
+
+      <main class="main">
+        <div id="empty" class="empty-state"><div class="empty-symbol">{ }</div><h2>选择一个配置文件</h2><p>从左侧列表打开 SCP:SL 或 EXILED 配置。</p></div>
+        <section id="editor-panel" class="editor-panel" hidden>
+          <div class="editor-head">
+            <div class="heading"><div class="breadcrumb" id="group-label">配置文件</div><h1 id="file-name">config_gameplay.txt</h1><p id="file-hint">中文配置表单 · UTF-8</p></div>
+            <div class="editor-actions"><a id="download" class="secondary" href="#" download title="下载服务器上已保存的配置文件">下载文件</a><button id="reload" class="secondary" type="button">重新加载</button><button id="backups" class="secondary" type="button">历史备份</button><button id="save" class="primary" type="button" disabled>保存更改</button></div>
+          </div>
+          <div class="editor-meta"><span id="change-state" class="pill">已同步</span><span id="char-count">0 字符</span><span>Ctrl + S 保存</span></div>
+          <div class="config-toolbar"><div><button id="structured-mode" class="secondary selected" type="button">中文表单</button><button id="raw-mode" class="secondary" type="button">原文编辑</button></div><label class="config-search">搜索配置项<input id="config-search" type="search" placeholder="中文名称或原始键名"></label></div>
+          <p id="config-note" class="config-note"></p>
+          <div id="config-fields" class="config-fields"></div>
+          <div id="raw-editor" class="editor-wrap" hidden><textarea id="editor" spellcheck="false" aria-label="配置文件内容"></textarea></div>
+          <div class="bottom-bar"><span>修改配置后，游戏服务可能需要重启才能生效。</span><button id="save-bottom" class="primary" type="button" disabled>保存更改</button></div>
+        </section>
+      </main>
+    </div>
+    <main id="accounts-view" class="control-page" hidden>
+      <div class="page-heading"><div><p class="eyebrow">ACCOUNT ACCESS</p><h1>账号管理</h1></div><button id="accounts-refresh" class="secondary" type="button">刷新</button></div>
+      <section class="control-card"><div class="card-heading"><h2>创建服管理员</h2><p>主账号拥有全部权限。服管理员只能使用下方勾选的功能，且不能管理账号或更新面板。</p></div>
+        <form id="account-create-form" class="account-form"><label>账号名<input id="new-account-name" type="text" pattern="[A-Za-z0-9_]{3,32}" autocomplete="off" required></label><label>初始密码（至少 6 位）<input id="new-account-password" type="password" minlength="6" autocomplete="new-password" required></label><div class="account-permissions" id="new-account-permissions"></div><button class="primary" type="submit">创建账号</button></form>
+      </section>
+      <section class="control-card"><div class="card-heading"><h2>现有账号</h2><p>可调整权限、停用账号、重置密码或删除账号；变更会立即作用于已登录账号。</p></div><div id="account-list" class="account-list"></div></section>
+      <section class="control-card"><div class="card-heading"><h2>修改主账号密码</h2><p>修改后需要重新登录。</p></div><form id="own-password-form" class="account-form"><label>当前密码<input id="own-old-password" type="password" autocomplete="current-password" required></label><label>新密码（至少 6 位）<input id="own-new-password" type="password" minlength="6" autocomplete="new-password" required></label><button class="secondary" type="submit">修改密码</button></form></section>
+    </main>
+    <main id="audit-view" class="control-page" hidden>
+      <div class="page-heading"><div><p class="eyebrow">PANEL ACTIVITY</p><h1>面板操作记录</h1></div><button id="audit-refresh" class="secondary" type="button">刷新</button></div>
+      <section class="control-card"><div class="card-heading"><h2>登录与操作</h2><p>仅主账号可见。记录账号、时间、访问 IP、操作及结果；密码和配置内容不会保存到这里。</p></div>
+        <label class="player-search">搜索账号、IP 或操作<input id="audit-search" type="search" placeholder="输入账号名、IP 或操作"></label>
+        <p id="audit-note" class="muted small-text">正在加载…</p>
+        <div id="audit-list" class="audit-list"></div>
+        <button id="audit-more" class="secondary" type="button" hidden>加载更多</button>
+        <p class="muted small-text">若通过 SSH 隧道访问，面板可能只看到隧道的本地 IP。</p>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="backup-dialog">
+    <div class="dialog-head"><div><p class="eyebrow">VERSION HISTORY</p><h2>历史备份</h2></div><button id="close-backups" class="icon-button" aria-label="关闭">×</button></div>
+    <p class="muted">每次保存或恢复前都会备份当前文件。恢复时也会保留当前版本。</p>
+    <div id="backup-list" class="backup-list"></div>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
