@@ -51,7 +51,7 @@
       </div>
       <section class="control-card" id="game-control-card"><div class="card-heading"><h2>游戏控制</h2><p>首次使用需填写这台 Windows 服务器上的 LocalAdmin.exe 完整路径和游戏端口。</p></div>
         <form id="game-config-form" class="form-grid"><label>LocalAdmin.exe 路径<input id="game-executable" type="text" placeholder="例如 D:\\SCPSL\\LocalAdmin.exe" autocomplete="off" required></label><label>游戏端口<input id="game-port" type="number" min="1" max="65535" value="7777" required></label><button class="secondary" type="submit">保存设置</button></form>
-        <form id="idle-restart-form" class="form-grid"><label>无人自动重启（分钟）<input id="idle-restart-minutes" type="number" min="0" max="1440" step="1" value="30" required></label><button class="secondary" type="submit">保存无人重启设置</button></form>
+        <form id="idle-restart-form" class="form-grid"><label>无人自动重启（分钟，1 天 = 1440）<input id="idle-restart-minutes" type="number" min="0" max="1440" step="1" value="1440" required></label><button class="secondary" type="submit">保存无人重启设置</button></form>
         <p id="idle-restart-status" class="muted small-text">游戏由面板启动后开始检测。填 0 可关闭；无人达到设定时长时完整重启一次，有玩家加入后重新计时。</p>
         <details class="advanced-setting"><summary>高级设置：玩家查询和文字编码</summary><label>LocalAdmin 控制台命令<input id="players-command" type="text" value="players" maxlength="80" form="game-config-form"></label><label>控制台文字编码<select id="console-encoding" form="game-config-form"><option value="auto">自动识别（推荐）</option><option value="gb18030">简体中文 Windows（GB18030）</option><option value="utf8">UTF-8</option></select></label><p class="muted small-text">默认使用 players 和自动识别。若玩家名仍显示乱码，选择“简体中文 Windows”，保存后重新启动游戏服务。</p></details>
         <p id="external-hint" class="inline-note" hidden></p>

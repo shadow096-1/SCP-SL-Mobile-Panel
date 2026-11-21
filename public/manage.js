@@ -248,7 +248,7 @@ async function refreshGame() {
       byId('game-port').value = result.config.executable ? result.config.port : detectedPort ? Number(detectedPort[1]) : result.config.port || 7777;
       byId('players-command').value = result.config.playersCommand || 'players';
       byId('console-encoding').value = result.config.consoleEncoding || 'auto';
-      byId('idle-restart-minutes').value = result.config.idleRestartMinutes ?? 30;
+      byId('idle-restart-minutes').value = result.config.idleRestartMinutes ?? 1440;
       configLoaded = true;
     }
     const idle = result.idleRestart || {};
@@ -256,7 +256,7 @@ async function refreshGame() {
       mode !== 'managed' ? '游戏由面板启动后才会检测无人时长；原窗口运行的游戏不受此设置控制。' :
       idle.error || (idle.triggered ? '本次无人期间已自动重启一次；有玩家加入后会重新计时。' :
       idle.nextAt ? `当前无人在线，预计 ${new Date(idle.nextAt).toLocaleString('zh-CN')} 完整重启游戏服务器。` :
-      '有玩家在线或游戏正在启动；玩家全部离开后开始计时。');
+      `有玩家在线或游戏正在启动；玩家全部离开后开始计时（${result.config.idleRestartMinutes === 1440 ? '1 天' : `${result.config.idleRestartMinutes} 分钟`}）。`);
     byId('game-start').disabled = mode !== 'stopped' || !result.config.executable;
     byId('game-restart').disabled = mode !== 'managed';
     byId('game-stop').disabled = mode !== 'managed';

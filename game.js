@@ -71,7 +71,8 @@ class GameManager {
     this.restartAfterPending = false;
     this.applyAfterExit = false;
     this.configFile = path.join(dataDir, 'game-control.json');
-    this.config = { executable: '', port: 7777, playersCommand: 'players', consoleEncoding: 'auto', idleRestartMinutes: 30 };
+    this.config = { executable: '', port: 7777, playersCommand: 'players', consoleEncoding: 'auto', idleRestartMinutes: 1440,
+      idleRestartCustomized: false };
     this.child = null;
     this.started = 0;
     this.ready = false;
@@ -97,7 +98,8 @@ class GameManager {
           playersCommand: typeof saved.playersCommand === 'string' && /^[A-Za-z0-9_ ]{1,80}$/.test(saved.playersCommand) ? saved.playersCommand : 'players',
           consoleEncoding: CONSOLE_ENCODINGS.has(saved.consoleEncoding) ? saved.consoleEncoding : 'auto',
           idleRestartMinutes: Number.isInteger(saved.idleRestartMinutes) && saved.idleRestartMinutes >= 0 && saved.idleRestartMinutes <= 1440
-            ? saved.idleRestartMinutes : 30 };
+            ? (saved.idleRestartMinutes === 30 && saved.idleRestartCustomized !== true ? 1440 : saved.idleRestartMinutes) : 1440,
+          idleRestartCustomized: saved.idleRestartCustomized === true };
       }
     } catch (error) { if (error.code !== 'ENOENT') throw error; }
     try {
@@ -230,7 +232,7 @@ class GameManager {
     const info = await fs.stat(executable).catch(() => null);
     if (!info?.isFile()) throw new HttpError(400, '服务器上找不到 LocalAdmin.exe');
     this.config = { executable: path.resolve(executable), port, playersCommand: playersCommand.trim(), consoleEncoding,
-      idleRestartMinutes: this.config.idleRestartMinutes };
+      idleRestartMinutes: this.config.idleRestartMinutes, idleRestartCustomized: this.config.idleRestartCustomized };
     await fs.writeFile(this.configFile, JSON.stringify(this.config, null, 2), { mode: 0o600 });
     return this.config;
   }
@@ -240,6 +242,7 @@ class GameManager {
       throw new HttpError(400, '无人自动重启时长必须是 0 到 1440 分钟的整数');
     }
     this.config.idleRestartMinutes = minutes;
+    this.config.idleRestartCustomized = true;
     await fs.writeFile(this.configFile, JSON.stringify(this.config, null, 2), { mode: 0o600 });
     this.clearIdleRestartTimer();
     this.idleSince = null;
@@ -280,7 +283,8 @@ class GameManager {
         this.sendCommand('exit');
         this.ready = false;
         this.clearIdleRestartTimer();
-        this.append(`[面板] 已连续 ${this.config.idleRestartMinutes} 分钟无人在线，正在完整重启游戏服务器。\n`);
+        const duration = this.config.idleRestartMinutes === 1440 ? '1 天' : `${this.config.idleRestartMinutes} 分钟`;
+        this.append(`[面板] 已连续 ${duration} 无人在线，正在完整重启游戏服务器。\n`);
       } catch (error) {
         this.restartAfterPending = false;
         this.idleRestartError = `无人自动重启失败：${error.message}`;

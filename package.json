@@ -1,6 +1,6 @@
 {
   "name": "scp-sl-mobile-panel",
-  "version": "2.7.8",
+  "version": "2.7.9",
   "private": true,
   "description": "SCP:SL Windows server configuration web panel",
   "scripts": {
