@@ -71,7 +71,7 @@ class GameManager {
     this.restartAfterPending = false;
     this.applyAfterExit = false;
     this.configFile = path.join(dataDir, 'game-control.json');
-    this.config = { executable: '', port: 7777, playersCommand: 'players', consoleEncoding: 'auto' };
+    this.config = { executable: '', port: 7777, playersCommand: 'players', consoleEncoding: 'auto', idleRestartMinutes: 30 };
     this.child = null;
     this.started = 0;
     this.ready = false;
@@ -82,6 +82,10 @@ class GameManager {
     this.cpuSample = null;
     this.playerStore = new PlayerStore(dataDir);
     this.playerQuery = null;
+    this.idleSince = null;
+    this.idleRestartTimer = null;
+    this.idleRestartTriggered = false;
+    this.idleRestartError = null;
   }
 
   async init() {
@@ -91,7 +95,9 @@ class GameManager {
       if (typeof saved.executable === 'string' && Number.isInteger(saved.port)) {
         this.config = { executable: saved.executable, port: saved.port,
           playersCommand: typeof saved.playersCommand === 'string' && /^[A-Za-z0-9_ ]{1,80}$/.test(saved.playersCommand) ? saved.playersCommand : 'players',
-          consoleEncoding: CONSOLE_ENCODINGS.has(saved.consoleEncoding) ? saved.consoleEncoding : 'auto' };
+          consoleEncoding: CONSOLE_ENCODINGS.has(saved.consoleEncoding) ? saved.consoleEncoding : 'auto',
+          idleRestartMinutes: Number.isInteger(saved.idleRestartMinutes) && saved.idleRestartMinutes >= 0 && saved.idleRestartMinutes <= 1440
+            ? saved.idleRestartMinutes : 30 };
       }
     } catch (error) { if (error.code !== 'ENOENT') throw error; }
     try {
@@ -223,9 +229,65 @@ class GameManager {
     if (!CONSOLE_ENCODINGS.has(consoleEncoding)) throw new HttpError(400, '控制台文字编码无效');
     const info = await fs.stat(executable).catch(() => null);
     if (!info?.isFile()) throw new HttpError(400, '服务器上找不到 LocalAdmin.exe');
-    this.config = { executable: path.resolve(executable), port, playersCommand: playersCommand.trim(), consoleEncoding };
+    this.config = { executable: path.resolve(executable), port, playersCommand: playersCommand.trim(), consoleEncoding,
+      idleRestartMinutes: this.config.idleRestartMinutes };
     await fs.writeFile(this.configFile, JSON.stringify(this.config, null, 2), { mode: 0o600 });
     return this.config;
+  }
+
+  async configureIdleRestart(minutes) {
+    if (!Number.isInteger(minutes) || minutes < 0 || minutes > 1440) {
+      throw new HttpError(400, '无人自动重启时长必须是 0 到 1440 分钟的整数');
+    }
+    this.config.idleRestartMinutes = minutes;
+    await fs.writeFile(this.configFile, JSON.stringify(this.config, null, 2), { mode: 0o600 });
+    this.clearIdleRestartTimer();
+    this.idleSince = null;
+    this.updateIdleRestart();
+    return { minutes };
+  }
+
+  clearIdleRestartTimer() {
+    if (this.idleRestartTimer) clearTimeout(this.idleRestartTimer);
+    this.idleRestartTimer = null;
+  }
+
+  updateIdleRestart() {
+    if (this.playerStore.online.length) {
+      this.clearIdleRestartTimer();
+      this.idleSince = null;
+      this.idleRestartTriggered = false;
+      this.idleRestartError = null;
+      return;
+    }
+    if (!this.child || !this.ready || !this.config.idleRestartMinutes) {
+      this.clearIdleRestartTimer();
+      this.idleSince = null;
+      return;
+    }
+    if (this.idleRestartTriggered || this.idleRestartTimer) return;
+    this.idleSince ||= Date.now();
+    const delay = Math.max(1, this.idleSince + this.config.idleRestartMinutes * 60_000 - Date.now());
+    this.idleRestartTimer = setTimeout(() => {
+      this.idleRestartTimer = null;
+      if (!this.child || !this.ready || this.playerStore.online.length || this.idleRestartTriggered) {
+        this.updateIdleRestart();
+        return;
+      }
+      this.idleRestartTriggered = true;
+      this.restartAfterPending = true;
+      try {
+        this.sendCommand('exit');
+        this.ready = false;
+        this.clearIdleRestartTimer();
+        this.append(`[面板] 已连续 ${this.config.idleRestartMinutes} 分钟无人在线，正在完整重启游戏服务器。\n`);
+      } catch (error) {
+        this.restartAfterPending = false;
+        this.idleRestartError = `无人自动重启失败：${error.message}`;
+        this.append(`[面板] ${this.idleRestartError}\n`);
+      }
+    }, delay);
+    this.idleRestartTimer.unref?.();
   }
 
   async externalProcesses() {
@@ -287,11 +349,12 @@ class GameManager {
       Promise.resolve(this.playerStore.observeLogLine(line)).catch(error => {
         this.playerStore.error = `保存玩家记录失败：${error.message}`;
       });
+      this.updateIdleRestart();
     }
     if (this.lines.length > 400) this.lines.splice(0, this.lines.length - 400);
   }
 
-  async start() {
+  async start(preserveIdleRestart = false) {
     if (this.child) throw new HttpError(409, '游戏服务已由面板启动');
     if (!this.config.executable) throw new HttpError(400, '请先设置 LocalAdmin.exe 路径');
     this.externalCache.expires = 0;
@@ -306,6 +369,10 @@ class GameManager {
     this.child = child;
     this.started = Date.now();
     this.ready = false;
+    this.clearIdleRestartTimer();
+    this.idleSince = null;
+    this.idleRestartTriggered = preserveIdleRestart;
+    this.idleRestartError = null;
     this.pendingScheduleSent = false;
     this.pendingExitRequested = false;
     this.pending = '';
@@ -320,9 +387,12 @@ class GameManager {
       this.append(`[面板] LocalAdmin 已退出（代码 ${code ?? '无'}，信号 ${signal ?? '无'}）\n`);
       if (this.child === child) this.child = null;
       this.ready = false;
+      this.clearIdleRestartTimer();
+      this.idleSince = null;
       this.externalCache.expires = 0;
       this.playerStore.clearOnline();
       const shouldRestart = this.restartAfterPending;
+      const preserveIdleRestart = this.idleRestartTriggered;
       const shouldApply = shouldRestart || this.applyAfterExit;
       this.restartAfterPending = false;
       this.applyAfterExit = false;
@@ -330,13 +400,13 @@ class GameManager {
       this.pendingExitRequested = false;
       if (shouldApply && this.pendingStatus().count) {
         this.applyPending().then(async () => {
-          if (shouldRestart) await this.start();
+          if (shouldRestart) await this.start(preserveIdleRestart);
         }).catch(error => {
           this.pendingError = `自动应用或重启失败：${error.message}`;
           this.append(`[面板] ${this.pendingError}\n`);
         });
       } else if (shouldRestart) {
-        this.start().catch(error => {
+        this.start(preserveIdleRestart).catch(error => {
           this.pendingError = `自动重启失败：${error.message}`;
           this.append(`[面板] ${this.pendingError}\n`);
         });
@@ -357,6 +427,8 @@ class GameManager {
   }
 
   restart() {
+    this.clearIdleRestartTimer();
+    this.idleSince = null;
     if (this.pendingStatus().count) {
       this.sendCommand('exit');
       this.restartAfterPending = true;
@@ -378,6 +450,9 @@ class GameManager {
     this.pendingScheduleSent = false;
     this.applyAfterExit = Boolean(this.pendingStatus().count);
     this.ready = false;
+    this.clearIdleRestartTimer();
+    this.idleSince = null;
+    this.idleRestartTriggered = false;
     this.append('[面板] 已发送 LocalAdmin 关闭命令\n');
     return { accepted: true };
   }
@@ -390,6 +465,7 @@ class GameManager {
       await new Promise(resolve => setTimeout(resolve, 1700));
       const lines = this.lines.filter(line => line.sequence > before).map(line => line.text);
       await this.playerStore.observe(lines);
+      this.updateIdleRestart();
       return { lines, ...this.playerStore.view() };
     })();
     try { return await this.playerQuery; }
@@ -430,6 +506,9 @@ class GameManager {
       machine: { cpuPercent, memoryTotal: os.totalmem(), memoryFree: os.freemem() },
       latest: this.sequence,
       pendingEdits: this.pendingStatus(),
+      idleRestart: { since: this.idleSince ? new Date(this.idleSince).toISOString() : null,
+        nextAt: this.idleSince && this.idleRestartTimer ? new Date(this.idleSince + this.config.idleRestartMinutes * 60_000).toISOString() : null,
+        triggered: this.idleRestartTriggered, error: this.idleRestartError },
     };
   }
 }

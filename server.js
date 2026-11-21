@@ -156,6 +156,7 @@ const AUDIT_ACTIONS = Object.freeze({
   'POST /api/file': '保存配置文件',
   'POST /api/restore': '恢复配置备份',
   'POST /api/game/config': '修改游戏控制设置',
+  'POST /api/game/idle-restart': '修改无人自动重启设置',
   'POST /api/game/start': '启动游戏服务器',
   'POST /api/game/restart': '重启游戏服务器',
   'POST /api/game/stop': '关闭游戏服务器',
@@ -346,6 +347,12 @@ async function start() {
         requirePermission('server.control');
         const body = await bodyJson(req);
         return send(res, 200, await game.configure(body.executable, body.port, body.playersCommand, body.consoleEncoding));
+      }
+      if (req.method === 'POST' && url.pathname === '/api/game/idle-restart') {
+        requirePermission('server.control');
+        const body = await bodyJson(req);
+        res.auditContext.target = `${body.minutes} 分钟`;
+        return send(res, 200, await game.configureIdleRestart(body.minutes));
       }
       if (req.method === 'POST' && url.pathname === '/api/game/start') { requirePermission('server.control'); return send(res, 200, await game.start()); }
       if (req.method === 'POST' && url.pathname === '/api/game/restart') { requirePermission('server.control'); return send(res, 200, game.restart()); }
